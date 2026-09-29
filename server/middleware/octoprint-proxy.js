@@ -1,5 +1,5 @@
 const { getPrinterStoreCache } = require("../cache/printer-store.cache");
-const request = require("request");
+const fetch = require("node-fetch");
 const Logger = require("../handlers/logger");
 const { LOGGER_ROUTE_KEYS } = require("../constants/logger.constants");
 
@@ -11,59 +11,53 @@ module.exports = {
     const item = req.paramString("item");
 
     const { printerURL, apikey } = getPrinterStoreCache().getPrinter(id);
-    let redirectedRequest;
 
     const redirectUrl = `${printerURL}/${item}`;
-    if (req.headers["content-type"] && req.headers["content-type"].match(/^multipart\/form-data/)) {
-      let defaultHeaders = {
-        "X-Api-Key": apikey
-      }
-      const headers = Object.assign(req.headers, defaultHeaders);
+    const queryString = new URLSearchParams(req.query).toString();
+    const fullUrl = queryString ? `${redirectUrl}?${queryString}` : redirectUrl;
 
-      redirectedRequest = request({
-        url: redirectUrl,
+    const isMultipart =
+      req.headers["content-type"] && req.headers["content-type"].match(/^multipart\/form-data/);
+
+    let headers;
+    let body;
+    if (isMultipart) {
+      headers = Object.assign({}, req.headers, { "X-Api-Key": apikey });
+      body = req.readable ? req : JSON.stringify(req.body);
+    } else {
+      headers = {
+        "Content-Type": "application/json",
+        "X-Api-Key": apikey
+      };
+      body = req.readable ? req : JSON.stringify(req.body);
+    }
+
+    try {
+      const proxyResponse = await fetch(fullUrl, {
         method: req.method,
-        body: req.readable ? undefined : req.body,
+        body: req.method === "GET" || req.method === "HEAD" ? undefined : body,
         headers,
-        json: !req.readable,
-        qs: req.query,
-        // Pass redirect back to the browser
-        followRedirect: true
+        redirect: "follow"
       });
-    } else {
-      redirectedRequest = request({
-        url: redirectUrl,
-        method: req.method,
-        body: req.readable ? undefined : req.body,
-        headers: {
-          "Content-Type": "application/json",
-          "X-Api-Key": apikey
-        },
-        json: req.readable ? false : true,
-        qs: req.query,
-        // Pass redirect back to the browser
-        followRedirect: true
+
+      res.status(proxyResponse.status);
+      proxyResponse.headers.forEach((value, name) => {
+        res.setHeader(name, value);
       });
+
+      proxyResponse.body.pipe(res);
+      proxyResponse.body.on("error", () => {
+        logger.error("Error pipe broken for mjpeg stream");
+      });
+      proxyResponse.body.on("end", () => {
+        logger.info("Pipe ended on octoprint proxy");
+      });
+      res.on("close", () => {
+        proxyResponse.body.destroy();
+      });
+    } catch (e) {
+      logger.error("Error proxying request to OctoPrint", e);
+      res.status(502).end();
     }
-    if (req.readable) {
-      // Handles all the streamable data (e.g. image uploads)
-      req.pipe(redirectedRequest).pipe(res);
-    } else {
-      // Handles everything else
-      redirectedRequest.pipe(res);
-    }
-    redirectedRequest.on("error", function () {
-      logger.error("Error pipe broken for mjpeg stream");
-    });
-    //client quit normally
-    redirectedRequest.on("end", function () {
-      logger.info("Pipe ended on octoprint proxy");
-      redirectedRequest.end();
-    });
-    //client quit unexpectedly
-    redirectedRequest.on("close", function () {
-      logger.warning("Pipe unexpectedly ended on octoprint proxy");
-      redirectedRequest.end();
-    });
   }
 };
