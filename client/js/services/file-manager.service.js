@@ -1235,6 +1235,21 @@ export class FileActions {
   }
 
   static async startPrint(printer, filePath) {
+    const confirmed = await new Promise((resolve) => {
+      bootbox.confirm({
+        title: "Confirm print",
+        message: `Start printing <b>${filePath}</b> on <b>${printer.printerName}</b>?`,
+        buttons: {
+          confirm: { label: "Print", className: "btn-success" },
+          cancel: { label: "Cancel", className: "btn-secondary" },
+        },
+        callback: (result) => resolve(!!result),
+      });
+    });
+    if (!confirmed) {
+      return;
+    }
+
     const opts = {
       command: "start",
     };

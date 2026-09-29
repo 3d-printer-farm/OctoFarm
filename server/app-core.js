@@ -137,6 +137,10 @@ function serveOctoFarmRoutes(app) {
     validateParamsMiddleware(M_VALID.MONGO_ID),
     proxyOctoPrintClientRequests
   );
+  // Intentionally not behind ensureAuthenticated: this is the OctoPrint-compatible
+  // ingest endpoint slicers (e.g. OrcaSlicer's Print Host) talk to directly, the same
+  // way they'd talk to a single OctoPrint instance with no separate OctoFarm login.
+  app.use('/api', require('./routes/farm-print-queue.routes.js', { page: 'route' }));
   app.use('/users', require('./routes/users.routes.js', { page: 'route' }));
   app.use(
     '/printers',

@@ -11,6 +11,7 @@ import {
 import { ClientErrors } from '../js/exceptions/octofarm-client.exceptions';
 import { ApplicationError } from '../js/exceptions/application-error.handler';
 import { updateCameraImage } from '../js/services/proxy-camera.service';
+import { showFarmPrintRequestModal } from '../js/services/farm-print-queue.service';
 
 // Keeping hold of this, may return a use for later...
 // function checkUpdateAndNotify(updateResponse) {
@@ -115,6 +116,10 @@ function setupEventSource() {
     if (type === MESSAGE_TYPES.NEW_CAMERA_IMAGE) {
       const { printerID, cameraURL } = message;
       await updateCameraImage(printerID, cameraURL);
+    }
+
+    if (type === MESSAGE_TYPES.FARM_PRINT_REQUEST) {
+      await showFarmPrintRequestModal(message);
     }
   };
   evtSource.onopen = function (e) {

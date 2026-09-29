@@ -4,7 +4,7 @@ const ServerSettingsSchema = new mongoose.Schema({
   server: {
     loginRequired: {
       type: Boolean,
-      default: true,
+      default: false,
       required: true,
     },
     registration: {
