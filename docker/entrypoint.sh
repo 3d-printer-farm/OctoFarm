@@ -1,11 +1,5 @@
 #!/bin/sh
 
-if [ -z "$MONGO" ]
-then
-    echo "MONGO is not defined, please define the MongoDB connection with the MONGO environment variable"
-    exit 1
-fi
-
 if [ -z "$OCTOFARM_PORT" ]
 then
     echo "OCTOFARM_PORT=$OCTOFARM_PORT is not defined, the default of 4000 will be assumed. You can override this at any point."

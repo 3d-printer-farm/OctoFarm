@@ -1,20 +1,18 @@
-# https://pkgs.alpinelinux.org/packages?name=nodejs&branch=v3.13
-# Results in NodeJS 14.17.0
-FROM alpine:3.14 as base
+# node:sqlite (built into Node) requires Node >= 22.5
+FROM node:22-alpine as base
 
 RUN apk add --no-cache --virtual .base-deps \
-    nodejs \
-    npm \
     tini
 
 ENV NODE_ENV=production
+ENV OCTOFARM_SQLITE_PATH=/app/data/octofarm.db
 
 RUN npm install -g npm@latest
 RUN npm install -g pm2
 
 RUN adduser -D octofarm --home /app && \
-    mkdir -p /scripts && \
-    chown -R octofarm:octofarm /scripts/
+    mkdir -p /scripts /app/data && \
+    chown -R octofarm:octofarm /scripts/ /app/data
 
 FROM base as compiler
 
@@ -47,6 +45,8 @@ RUN rm -rf /tmp/app
 
 USER octofarm
 WORKDIR /app
+
+VOLUME ["/app/data"]
 
 RUN chmod +x ./docker/entrypoint.sh
 ENTRYPOINT [ "/sbin/tini", "--" ]

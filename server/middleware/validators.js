@@ -25,20 +25,7 @@ const arrayValidator = function arrayLengthValidator(minIncl = null, maxIncl = n
   };
 };
 
-function validateMongoURL(mongoURL) {
-  const mongoString = mongoURL.toLowerCase();
-  const hasMongoPrefix =
-    mongoString.toLowerCase().includes("mongodb://") ||
-    mongoString.toLowerCase().includes("mongodb+srv://");
-
-  // const hasOctoFarmTable = mongoString.includes("/octofarm");
-  // this should not be a validation rule on mongo... people can call their database whatever they like!
-  return {
-    hasMongoPrefix,
-    isValid: hasMongoPrefix
-  };
-}
-//REFACTOR this needs splitting up for each section of the app
+ //REFACTOR this needs splitting up for each section of the app
 function getExtendedValidator() {
   nodeInputValidator.extend("wss_url", ({ value, args }) => {
     const url = new URL(value).href;
@@ -140,6 +127,5 @@ module.exports = {
   arrayValidator,
   validateBodyMiddleware,
   validateParamsMiddleware,
-  validateInput,
-  validateMongoURL
+  validateInput
 };

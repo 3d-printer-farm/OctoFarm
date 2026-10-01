@@ -1,6 +1,5 @@
 const { randomString } = require("../utils/random.util");
 
-const MONGO_KEY = "MONGO";
 const OCTOFARM_PORT_KEY = "OCTOFARM_PORT";
 const NON_NPM_MODE_KEY = "NON_NPM_MODE";
 const OCTOFARM_SITE_TITLE_KEY = "OCTOFARM_SITE_TITLE";
@@ -10,7 +9,6 @@ const SUPER_SECRET_KEY = "SUPER_SECRET_KEY";
 
 const VERSION_KEY = "npm_package_version";
 
-const defaultMongoStringUnauthenticated = "mongodb://127.0.0.1:27017/octofarm";
 const defaultOctoFarmPort = 4000;
 const defaultOctoFarmPageTitle = "OctoFarm";
 const defaultProductionEnv = "production";
@@ -34,10 +32,6 @@ class AppConstants {
 
   static get apiRoute() {
     return apiRoute;
-  }
-
-  static get defaultMongoStringUnauthenticated() {
-    return defaultMongoStringUnauthenticated;
   }
 
   static get defaultOctoFarmPort() {
@@ -78,10 +72,6 @@ class AppConstants {
 
   static get NODE_ENV_KEY() {
     return NODE_ENV_KEY;
-  }
-
-  static get MONGO_KEY() {
-    return MONGO_KEY;
   }
 
   static get OCTOFARM_PORT_KEY() {

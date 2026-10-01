@@ -52,7 +52,7 @@ function writeVariableToEnvFile(absoluteEnvPath, variableKey, jsonObject) {
   } else if (!!latestDotEnvConfig.error) {
     logger.error(JSON.stringify(latestDotEnvConfig.error));
     throw new Error(
-      "Could not parse current .env file. Please ensure the file contains lines with each looking like 'MONGO=http://mongo/octofarm' and 'OCTOFARM_PORT=4000' and so on."
+      "Could not parse current .env file. Please ensure the file contains lines with each looking like 'OCTOFARM_PORT=4000' and so on."
     );
   }
 

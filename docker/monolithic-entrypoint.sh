@@ -1,6 +1,5 @@
 #!/bin/sh
-mkdir -p /data/db
-nohup sh -c mongod --dbpath /data/db &
+mkdir -p /app/data
 
 if [ -d "logs" ]
 then
