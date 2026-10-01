@@ -18,6 +18,24 @@ async function fetchFirstAdministrator() {
   return currentUserList[0];
 }
 
+// With login disabled there is no registration step, but pages still need a user to
+// attach client settings to - so make sure a default administrator exists.
+async function ensureDefaultAdministrator() {
+  const existing = await fetchFirstAdministrator();
+  if (existing) {
+    return existing;
+  }
+  const password = require("../utils/random.util").randomString(24);
+  const { createdNewUser } = await createUser({
+    name: "Administrator",
+    username: "admin",
+    group: "Administrator",
+    password,
+    password2: password
+  });
+  return createdNewUser || undefined;
+}
+
 async function checkLastAdministrator() {
   const currentUserList = await fetchUsers();
   const userIndex = findIndex(currentUserList, function (o) {
@@ -233,5 +251,6 @@ module.exports = {
   deleteUser,
   resetPassword,
   editUser,
-  fetchFirstAdministrator
+  fetchFirstAdministrator,
+  ensureDefaultAdministrator
 };

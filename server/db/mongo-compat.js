@@ -50,7 +50,26 @@ function deepEqual(a, b) {
   return JSON.stringify(a) === JSON.stringify(b);
 }
 
+// Resolves a dot path against a document, fanning out across arrays the way Mongo
+// does (e.g. "filamentSelection.spools.name" matches if any array entry matches).
+function collectPath(obj, parts) {
+  if (parts.length === 0) {
+    return Array.isArray(obj) ? [obj, ...obj] : [obj];
+  }
+  if (obj == null) {
+    return [undefined];
+  }
+  if (Array.isArray(obj)) {
+    return obj.flatMap((item) => collectPath(item, parts));
+  }
+  return collectPath(obj[parts[0]], parts.slice(1));
+}
+
 function valueMatches(actual, expected) {
+  if (expected instanceof RegExp) {
+    return typeof actual === "string" && expected.test(actual);
+  }
+
   const isOperatorObject =
     expected && typeof expected === "object" && !Array.isArray(expected) && !(expected instanceof Date);
 
@@ -93,8 +112,8 @@ function matchesFilter(doc, filter) {
     if (key === "$and") {
       return expected.every((sub) => matchesFilter(doc, sub));
     }
-    const actual = key.includes(".") ? getPath(doc, key) : doc[key];
-    return valueMatches(actual, expected);
+    const candidates = key.includes(".") ? collectPath(doc, key.split(".")) : [doc[key]];
+    return candidates.some((actual) => valueMatches(actual, expected));
   });
 }
 
@@ -250,6 +269,11 @@ function createModel(collectionName, modelOptions = {}) {
     constructor(data = {}) {
       const withDefaults = modelOptions.defaults ? deepMergeDefaults(modelOptions.defaults, data) : data;
       Object.assign(this, withDefaults);
+      for (const [key, makeDefault] of Object.entries(modelOptions.computedDefaults || {})) {
+        if (this[key] === undefined) {
+          this[key] = makeDefault();
+        }
+      }
       if (!this._id) {
         this._id = randomUUID();
       }
@@ -356,6 +380,40 @@ function createModel(collectionName, modelOptions = {}) {
       return { deletedCount: docs.length, acknowledged: true };
     },
 
+    async findOneAndDelete(filter = {}) {
+      const doc = store.allInCollection(collectionName).find((entry) => matchesFilter(entry, filter));
+      if (!doc) {
+        return null;
+      }
+      store.removeById(collectionName, doc._id);
+      return hydrate(doc);
+    },
+
+    findByIdAndDelete(id, callback) {
+      const run = () => statics.findOneAndDelete({ _id: String(id) });
+      if (typeof callback === "function") {
+        run()
+          .then(() => callback(null))
+          .catch((err) => callback(err));
+        return undefined;
+      }
+      return run();
+    },
+
+    async updateOne(filter, update) {
+      const doc = await statics.findOneAndUpdate(filter, update);
+      return { matchedCount: doc ? 1 : 0, modifiedCount: doc ? 1 : 0, acknowledged: true };
+    },
+
+    async updateMany(filter, update) {
+      const docs = store.allInCollection(collectionName).filter((entry) => matchesFilter(entry, filter));
+      for (const doc of docs) {
+        applyUpdate(doc, update);
+        store.upsert(collectionName, doc._id, doc);
+      }
+      return { matchedCount: docs.length, modifiedCount: docs.length, acknowledged: true };
+    },
+
     async countDocuments(filter = {}) {
       return store.allInCollection(collectionName).filter((doc) => matchesFilter(doc, filter)).length;
     },
@@ -375,7 +433,10 @@ function createModel(collectionName, modelOptions = {}) {
 
       if (options.sort) {
         const [sortKey, sortDir] = Object.entries(options.sort)[0] || [];
-        if (sortKey) {
+        if (sortKey === "_id") {
+          // ids are random UUIDs; "_id order" means insertion order, as ObjectIds gave.
+          docs = sortDir < 0 ? docs.slice().reverse() : docs;
+        } else if (sortKey) {
           docs = docs.slice().sort((a, b) => {
             const av = comparable(getPath(a, sortKey));
             const bv = comparable(getPath(b, sortKey));
@@ -386,28 +447,45 @@ function createModel(collectionName, modelOptions = {}) {
         }
       }
 
-      const page = options.page || 1;
-      const limit = options.limit || docs.length || 10;
       const totalDocs = docs.length;
+      const unpaged = options.pagination === false;
+      const page = unpaged ? 1 : parseInt(options.page) || 1;
+      const limit = unpaged ? totalDocs || 1 : parseInt(options.limit) || 10;
       const totalPages = Math.max(1, Math.ceil(totalDocs / limit));
       const start = (page - 1) * limit;
       const pageDocs = docs.slice(start, start + limit).map(hydrate);
 
       const labels = options.customLabels || {};
-      const rawResult = { docs: pageDocs, totalDocs, limit, page, totalPages };
-      const labelledResult = {};
-      for (const [key, value] of Object.entries(rawResult)) {
-        labelledResult[labels[key] || key] = value;
+      const meta = {
+        totalDocs,
+        limit,
+        page,
+        totalPages,
+        pagingCounter: start + 1,
+        hasPrevPage: page > 1,
+        hasNextPage: page < totalPages,
+        prevPage: page > 1 ? page - 1 : null,
+        nextPage: page < totalPages ? page + 1 : null
+      };
+      const labelledMeta = {};
+      for (const [key, value] of Object.entries(meta)) {
+        labelledMeta[labels[key] || key] = value;
       }
+
+      // Like mongoose-paginate-v2: with a `meta` label the paging details are nested
+      // under that key, otherwise they sit alongside the docs.
+      const result = { [labels.docs || "docs"]: pageDocs };
       if (labels.meta) {
-        labelledResult[labels.meta] = labelledResult;
+        result[labels.meta] = labelledMeta;
+      } else {
+        Object.assign(result, labelledMeta);
       }
 
       if (typeof callback === "function") {
-        const callbackReturn = callback(null, { ...rawResult, paginator: labelledResult });
-        return callbackReturn !== undefined ? callbackReturn : labelledResult;
+        const callbackReturn = callback(null, result);
+        return callbackReturn !== undefined ? callbackReturn : result;
       }
-      return labelledResult;
+      return result;
     }
   };
 

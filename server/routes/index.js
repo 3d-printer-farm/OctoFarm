@@ -26,6 +26,7 @@ const { isNodemon, isNode, isPm2 } = require('../utils/env.utils');
 const { getCurrentBranch, checkIfWereInAGitRepo } = require('../utils/git.utils');
 const { returnPatreonData } = require('../services/patreon.service');
 
+const { resolveDatabasePath } = require('../db/sqlite-store');
 const version = process.env[AppConstants.VERSION_KEY];
 
 // Welcome Page
@@ -347,6 +348,7 @@ router.get('/system', ensureAuthenticated, ensureCurrentUserAndGroup, async (req
     clientSettings,
     serverSettings,
     systemInformation,
+    db: resolveDatabasePath(),
     dashboardSettings: dashboardSettings,
     serviceInformation: {
       isDockerContainer: isDocker(),

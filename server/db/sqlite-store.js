@@ -8,6 +8,17 @@ const fs = require("fs");
 // OctoFarm already dealt with (Object/Array/Mixed fields everywhere) working the
 // same way, without redesigning everything into a rigid relational schema.
 
+// JSON has no Date type, so dates are stored as ISO strings. Mongo handed back real
+// Date objects and the rest of the code relies on that (.getTime(), date maths), so
+// strict ISO-8601 UTC strings are revived into Dates on read.
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/;
+function reviveDates(_key, value) {
+  return typeof value === "string" && ISO_DATE.test(value) ? new Date(value) : value;
+}
+function parseDoc(text) {
+  return JSON.parse(text, reviveDates);
+}
+
 function resolveDatabasePath() {
   const configured = process.env.OCTOFARM_SQLITE_PATH;
   if (configured) {
@@ -42,14 +53,14 @@ function getDatabase() {
 function allInCollection(collection) {
   const database = getDatabase();
   const stmt = database.prepare("SELECT id, data FROM documents WHERE collection = ? ORDER BY rowid ASC");
-  return stmt.all(collection).map((row) => JSON.parse(row.data));
+  return stmt.all(collection).map((row) => parseDoc(row.data));
 }
 
 function getById(collection, id) {
   const database = getDatabase();
   const stmt = database.prepare("SELECT data FROM documents WHERE collection = ? AND id = ?");
   const row = stmt.get(collection, id);
-  return row ? JSON.parse(row.data) : null;
+  return row ? parseDoc(row.data) : null;
 }
 
 function upsert(collection, id, docObject) {
@@ -108,6 +119,7 @@ function trimToMostRecent(collection, maxDocs) {
 }
 
 module.exports = {
+  resolveDatabasePath,
   getDatabase,
   allInCollection,
   getById,
