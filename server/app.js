@@ -5,19 +5,15 @@ try {
   // We dont abort on parsing failures
 }
 
-if (!!majorVersion && majorVersion < 14) {
+// SQLite storage (node:sqlite) requires a modern Node runtime.
+if (!!majorVersion && majorVersion < 22) {
   // Dont require this in the normal flow (or NODE_ENV can not be fixed before start)
   const { serveNodeVersionFallback, setupFallbackExpressServer } = require("./app-fallbacks");
 
   const octoFarmServer = setupFallbackExpressServer();
   serveNodeVersionFallback(octoFarmServer);
 } else {
-  const {
-    setupEnvConfig,
-    fetchMongoDBConnectionString,
-    fetchOctoFarmPort,
-    runMigrations
-  } = require("./app-env");
+  const { setupEnvConfig, fetchOctoFarmPort } = require("./app-env");
 
   function bootAutoDiscovery() {
     require("./services/octoprint-auto-discovery.service.js");
@@ -32,8 +28,6 @@ if (!!majorVersion && majorVersion < 14) {
     ensureSystemSettingsInitiated
   } = require("./app-core");
 
-  const mongoose = require("mongoose");
-
   const { LOGGER_ROUTE_KEYS } = require("./constants/logger.constants");
   const Logger = require("./handlers/logger.js");
 
@@ -41,20 +35,11 @@ if (!!majorVersion && majorVersion < 14) {
 
   const octoFarmServer = setupExpressServer();
 
-  mongoose
-    .connect(fetchMongoDBConnectionString(), {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-      serverSelectionTimeoutMS: 2500
-    })
-    .then(async (mg) => {
-      await runMigrations(mg.connection.db, mg.connection.getClient());
-    })
-    .then(async () => ensureSystemSettingsInitiated())
+  ensureSystemSettingsInitiated()
     .then(async () => {
       const port = fetchOctoFarmPort();
       if (!port || Number.isNaN(parseInt(port))) {
-        throw new Error("The server database-issue mode requires a numeric port input argument");
+        throw new Error("OctoFarm requires a numeric port input argument");
       }
 
       const app = await serveOctoFarmNormally(octoFarmServer);
@@ -63,7 +48,6 @@ if (!!majorVersion && majorVersion < 14) {
 
       const applicationServer = app.listen(port, "0.0.0.0", () => {
         logger.info(`Server started... open it at http://127.0.0.1:${port}`);
-        // PM2 to signify process is ready... should wait for database connection...
         if (typeof process.send === "function") {
           process.send("ready");
         }
@@ -89,24 +73,9 @@ if (!!majorVersion && majorVersion < 14) {
 
       logger.debug("Listeners for shutdown added!");
     })
-    .catch(async (err) => {
-      const { SERVER_ISSUES } = require("./constants/server-issues.constants");
-      logger.error(err.stack);
-      if (
-        err.stack.includes(SERVER_ISSUES.DATABASE_AUTH_FAIL) ||
-        err.stack.includes(SERVER_ISSUES.DATABASE_CONN_FAIL) ||
-        err.stack.includes(SERVER_ISSUES.SERVER_SETTINGS_FAIL_INIT) ||
-        err.stack.includes(SERVER_ISSUES.SERVER_SETTINGS_FAIL_UPDATE) ||
-        err.stack.includes(SERVER_ISSUES.CLIENT_SETTINGS_FAIL_INIT) ||
-        err.stack.includes(SERVER_ISSUES.CLIENT_SETTINGS_FAIL_UPDATE)
-      ) {
-        const { serveDatabaseIssueFallback } = require("./app-fallbacks");
-        serveDatabaseIssueFallback(octoFarmServer, fetchOctoFarmPort());
-        // PM2 to signify process is ready...
-        if (typeof process.send === "function") {
-          process.send("ready");
-        }
-      }
+    .catch((err) => {
+      logger.error("OctoFarm failed to start", err.stack);
+      process.exitCode = 1;
     });
 
   bootAutoDiscovery();

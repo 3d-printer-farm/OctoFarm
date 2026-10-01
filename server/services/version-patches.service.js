@@ -1,5 +1,4 @@
 const { convertHttpUrlToWebsocket } = require('../utils/url.utils');
-const mongoose = require('mongoose');
 const Logger = require('../handlers/logger');
 const { getPrinterStoreCache } = require('../cache/printer-store.cache');
 const { PRINTER_CATEGORIES } = require('./printers/constants/printer-categories.constants');

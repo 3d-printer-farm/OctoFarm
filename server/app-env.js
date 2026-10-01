@@ -7,15 +7,12 @@ const dotenv = require('dotenv');
 const { AppConstants } = require('./constants/app.constants');
 
 const Logger = require('./handlers/logger.js');
-const { status, up } = require('migrate-mongo');
 const { LOGGER_ROUTE_KEYS } = require('./constants/logger.constants');
 
 const logger = new Logger(LOGGER_ROUTE_KEYS.SERVER_ENVIRONMENT, false);
 
 // Constants and definition
 const instructionsReferralURL = 'https://docs.octofarm.net/installation/setup-environment.html';
-const deprecatedConfigFolder = '../middleware';
-const deprecatedConfigFilePath = deprecatedConfigFolder + 'db.js';
 const packageJsonPath = path.join(__dirname, '../package.json');
 const packageLockPath = path.join(__dirname, '../package-lock.json');
 const packageLockFile = require(packageLockPath);
@@ -84,20 +81,6 @@ function removePm2Service(reason) {
 
 /**
  *
- * @param folder
- */
-function removeFolderIfEmpty(folder) {
-  return fs.rmdir(folder, function (err) {
-    if (err) {
-      logger.error(`~ Could not clear up the folder ${folder} as it was not empty`);
-    } else {
-      logger.info(`✓ Successfully removed the empty directory ${folder}`);
-    }
-  });
-}
-
-/**
- *
  */
 function setupPackageJsonVersionOrThrow() {
   const result = envUtils.verifyPackageJsonRequirements(path.join(__dirname, '../server'));
@@ -116,40 +99,6 @@ function printInstructionsURL() {
   logger.info(
     `Please make sure to read ${instructionsReferralURL} on how to configure your environment correctly.`
   );
-}
-
-/**
- *
- */
-function removeDeprecatedMongoURIConfigFile() {
-  logger.info("~ Removing deprecated middleware file 'middleware/db.js'.");
-  fs.rmSync(deprecatedConfigFilePath);
-  removeFolderIfEmpty(deprecatedConfigFolder);
-}
-
-/**
- *
- * @param persistToEnv
- * @returns {string}
- */
-function fetchMongoDBConnectionString(persistToEnv = false) {
-  if (!process.env[AppConstants.MONGO_KEY]) {
-    logger.warning(
-      `~ ${AppConstants.MONGO_KEY} environment variable is not set. Assuming default: ${AppConstants.MONGO_KEY}=${AppConstants.defaultMongoStringUnauthenticated}`
-    );
-    printInstructionsURL();
-    process.env[AppConstants.MONGO_KEY] = AppConstants.defaultMongoStringUnauthenticated;
-
-    // is not isDocker just to be sure, also checked in writeVariableToEnvFile
-    if (persistToEnv && !isDocker()) {
-      envUtils.writeVariableToEnvFile(
-        path.resolve(dotEnvPath),
-        AppConstants.MONGO_KEY,
-        AppConstants.defaultMongoStringUnauthenticated
-      );
-    }
-  }
-  return process.env[AppConstants.MONGO_KEY];
 }
 
 /**
@@ -181,59 +130,6 @@ function fetchOctoFarmPort() {
   }
   return port;
 }
-/**
-/**
- * Make sure that we have a valid MongoDB connection string to work with.
- */
-function ensureMongoDBConnectionStringSet() {
-  let dbConnectionString = process.env[AppConstants.MONGO_KEY];
-  if (!dbConnectionString) {
-    if (isDocker()) {
-      // This will not trigger often, as docker entrypoint catches this.
-      fetchMongoDBConnectionString(false);
-      return;
-    }
-
-    if (!fs.existsSync(deprecatedConfigFilePath)) {
-      fetchMongoDBConnectionString(true);
-      return;
-    }
-
-    const mongoFallbackURI = require(deprecatedConfigFilePath).MongoURI;
-    if (!mongoFallbackURI) {
-      logger.info(
-        "~ Found deprecated middleware file 'middleware/db.js', but the MongoURI variable was not set (or possibly invalid)."
-      );
-      removeDeprecatedMongoURIConfigFile();
-      logger.info(
-        `~ ${AppConstants.MONGO_KEY} environment variable is not set. Assuming default: ${AppConstants.MONGO_KEY}=${AppConstants.defaultMongoStringUnauthenticated}`
-      );
-      printInstructionsURL();
-      process.env[AppConstants.MONGO_KEY] = AppConstants.defaultMongoStringUnauthenticated;
-    } else {
-      // We're not in docker, so we have some patch-work to do.
-      removeDeprecatedMongoURIConfigFile();
-      logger.info(
-        "~ Found deprecated middleware file 'middleware/db.js', performing small migration task to '.env'."
-      );
-      envUtils.writeVariableToEnvFile(
-        path.resolve(dotEnvPath),
-        AppConstants.MONGO_KEY,
-        mongoFallbackURI
-      );
-      process.env[AppConstants.MONGO_KEY] = mongoFallbackURI;
-    }
-  } else {
-    if (fs.existsSync(deprecatedConfigFilePath)) {
-      logger.info(
-        "~ Found deprecated middleware file 'middleware/db.js', but it is redundant. Clearing this up for you."
-      );
-      removeDeprecatedMongoURIConfigFile();
-    }
-    logger.info(`✓ ${AppConstants.MONGO_KEY} environment variable set!`);
-  }
-}
-
 /**
  *
  */
@@ -277,7 +173,6 @@ function setupEnvConfig(skipDotEnv = false) {
   ensureNodeEnvSet();
   setupPackageJsonVersionOrThrow();
   ensureEnvNpmVersionSet();
-  ensureMongoDBConnectionStringSet();
   ensurePortSet();
   envUtils.ensureBackgroundImageExists(__dirname);
   ensurePageTitle();
@@ -314,31 +209,6 @@ function getViewsPath() {
     logger.debug('✓ Views folder found:', { path: viewsPath });
   }
   return viewsPath;
-}
-
-/**
- * Checks and runs database migrations
- * @param db
- * @param client
- * @returns {Promise<void>}
- */
-async function runMigrations(db, client) {
-  const migrationsStatus = await status(db);
-  const pendingMigrations = migrationsStatus.filter((m) => m.appliedAt === 'PENDING');
-
-  if (pendingMigrations.length) {
-    logger.info(
-      `! MongoDB has ${pendingMigrations.length} migrations left to run (${migrationsStatus.length} are already applied)`
-    );
-  } else {
-    logger.info(`✓ Mongo Database is up to date [${migrationsStatus.length} migration applied]`);
-  }
-
-  const migrationResult = await up(db, client);
-
-  if (migrationResult > 0) {
-    logger.info(`Applied ${migrationResult.length} migrations successfully`, migrationResult);
-  }
 }
 
 /**
@@ -399,8 +269,6 @@ function ensureSuperSecretKeySet() {
 module.exports = {
   isEnvProd,
   setupEnvConfig,
-  runMigrations,
-  fetchMongoDBConnectionString,
   fetchOctoFarmPort,
   getViewsPath,
   fetchClientVersion,

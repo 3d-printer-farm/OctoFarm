@@ -1,19 +1,5 @@
-const mongoose = require("mongoose");
+const { createModel } = require("../db/mongo-compat");
 
-const TempHistorySchema = new mongoose.Schema(
-  {
-    currentTemp: {
-      type: Object,
-      required: true
-    },
-    printer_id: {
-      type: String,
-      required: true
-    }
-  },
-  { capped: true, size: 10000, max: 1000000, autoIndexId: true }
-);
-
-const TempHistory = mongoose.model("TempHistory", TempHistorySchema);
+const TempHistory = createModel("TempHistory", { capped: 10000 });
 
 module.exports = TempHistory;

@@ -1,7 +1,6 @@
 const nodeInputValidator = require("node-input-validator");
 const { ValidationException } = require("../exceptions/runtime.exceptions");
 const { databaseNamesList } = require("../constants/database.constants");
-const mongoose = require("mongoose");
 const { LOGGER_ROUTE_KEYS } = require("../constants/logger.constants");
 const Logger = require("../handlers/logger");
 const path = require("path");
@@ -46,7 +45,7 @@ function getExtendedValidator() {
     return url.includes("ws://") || url.includes("wss://");
   });
   nodeInputValidator.extend("mongoose_object_id", async ({ value, args }) => {
-    return mongoose.Types.ObjectId.isValid(value) || typeof value !== "undefined";
+    return typeof value === "string" && value.length > 0;
   });
   //FIX this needs a custom message passing back out, can remove the logger then.
   nodeInputValidator.extend("settings_appearance", async ({ value, args }) => {

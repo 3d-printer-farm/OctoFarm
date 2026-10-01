@@ -21,7 +21,6 @@ const {
 } = require('../services/printer-statistics.service');
 const { SystemRunner } = require('../services/system-information.service');
 const { fetchUsers } = require('../services/users.service');
-const { fetchMongoDBConnectionString } = require('../app-env');
 const isDocker = require('is-docker');
 const { isNodemon, isNode, isPm2 } = require('../utils/env.utils');
 const { getCurrentBranch, checkIfWereInAGitRepo } = require('../utils/git.utils');
@@ -348,7 +347,6 @@ router.get('/system', ensureAuthenticated, ensureCurrentUserAndGroup, async (req
     clientSettings,
     serverSettings,
     systemInformation,
-    db: fetchMongoDBConnectionString(),
     dashboardSettings: dashboardSettings,
     serviceInformation: {
       isDockerContainer: isDocker(),

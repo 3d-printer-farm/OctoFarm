@@ -1,12 +1,5 @@
-const mongoose = require("mongoose");
+const { createModel } = require("../db/mongo-compat");
 
-const ErrorLogSchema = new mongoose.Schema({
-  errorLog: {
-    type: Object,
-    required: true
-  }
-});
-
-const ErrorLog = mongoose.model("ErrorLog", ErrorLogSchema);
+const ErrorLog = createModel("ErrorLog", { capped: 2000 });
 
 module.exports = ErrorLog;

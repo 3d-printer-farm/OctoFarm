@@ -1,180 +1,62 @@
-const mongoose = require('mongoose');
+const { createModel } = require("../db/mongo-compat");
 
-const ServerSettingsSchema = new mongoose.Schema({
+const defaults = {
   server: {
-    loginRequired: {
-      type: Boolean,
-      default: false,
-      required: true,
-    },
-    registration: {
-      type: Boolean,
-      default: true,
-      required: true,
-    },
+    loginRequired: false,
+    registration: true
   },
   timeout: {
-    // When to retry the connections, this is a base for the
-    apiRetry: {
-      type: Number,
-      default: 30000,
-      required: true,
-    },
-    // When to try reconnecting the websocket...
-    webSocketRetry: {
-      type: Number,
-      default: 5000,
-      required: true,
-    },
+    apiRetry: 30000,
+    webSocketRetry: 5000
   },
   filament: {
-    filamentCheck: {
-      type: Boolean,
-      default: false,
-      required: true,
-    },
-    downDateSuccess: {
-      type: Boolean,
-      default: false,
-      required: true,
-    },
-    downDateFailed: {
-      type: Boolean,
-      default: false,
-      required: true,
-    },
-    hideEmpty: {
-      type: Boolean,
-      default: false,
-      required: true,
-    },
-    allowMultiSelect: {
-      type: Boolean,
-      default: true,
-      required: true,
-    },
+    filamentCheck: false,
+    downDateSuccess: false,
+    downDateFailed: false,
+    hideEmpty: false,
+    allowMultiSelect: true
   },
   history: {
     snapshot: {
-      onComplete: {
-        type: Boolean,
-        default: false,
-        required: true,
-      },
-      onFailure: {
-        type: Boolean,
-        default: false,
-        required: true,
-      },
+      onComplete: false,
+      onFailure: false
     },
     thumbnails: {
-      onComplete: {
-        type: Boolean,
-        default: false,
-        required: true,
-      },
-      onFailure: {
-        type: Boolean,
-        default: false,
-        required: true,
-      },
+      onComplete: false,
+      onFailure: false
     },
     timelapse: {
-      onComplete: {
-        type: Boolean,
-        default: false,
-        required: true,
-      },
-      onFailure: {
-        type: Boolean,
-        default: false,
-        required: true,
-      },
-      deleteAfter: {
-        type: Boolean,
-        default: false,
-        required: true,
-      },
-    },
+      onComplete: false,
+      onFailure: false,
+      deleteAfter: false
+    }
   },
   influxExport: {
-    active: {
-      type: Boolean,
-      default: false,
-      required: true,
-    },
-    host: {
-      type: String,
-    },
-    port: {
-      type: String,
-    },
-    database: {
-      type: String,
-    },
-    username: {
-      type: String,
-    },
-    password: {
-      type: String,
-    },
+    active: false,
+    host: undefined,
+    port: undefined,
+    database: undefined,
+    username: undefined,
+    password: undefined,
     retentionPolicy: {
-      defaultRet: {
-        type: Boolean,
-      },
-    },
+      defaultRet: undefined
+    }
   },
   monitoringViews: {
-    panel: {
-      type: Boolean,
-      required: true,
-      default: true,
-    },
-    list: {
-      type: Boolean,
-      required: true,
-      default: true,
-    },
-    camera: {
-      type: Boolean,
-      required: true,
-      default: true,
-    },
-    group: {
-      type: Boolean,
-      required: true,
-      default: false,
-    },
-    currentOperations: {
-      type: Boolean,
-      required: true,
-      default: false,
-    },
-    combined: {
-      type: Boolean,
-      required: true,
-      default: false,
-    },
+    panel: true,
+    list: true,
+    camera: true,
+    group: false,
+    currentOperations: false,
+    combined: false
   },
   cameras: {
-    proxyEnabled: {
-      type: Boolean,
-      required: true,
-      default: false,
-    },
-    aspectRatio: {
-      type: String,
-      required: true,
-      default: '0',
-    },
-    updateInterval: {
-      type: Number,
-      required: true,
-      default: 10000,
-    },
-  },
-});
+    proxyEnabled: false,
+    aspectRatio: "0",
+    updateInterval: 10000
+  }
+};
 
-const ServerSettings = mongoose.model('ServerSettings', ServerSettingsSchema);
+const ServerSettings = createModel("ServerSettings", { defaults });
 
 module.exports = ServerSettings;

@@ -19,3 +19,5 @@ pnpm-lock.yaml
 /client/assets/css
 /client/build/*
 
+
+server/octofarm.db*
